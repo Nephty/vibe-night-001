@@ -192,6 +192,7 @@
                 VIBENIGHT_BIND = cfg.bind;
                 VIBENIGHT_WORKERS = toString cfg.workers;
                 DJANGO_FORCE_SCRIPT_NAME = cfg.urlPrefix;
+                VIBENIGHT_KEYLOG_PATH = "/var/lib/vibenight/keylog.jsonl";
               };
               serviceConfig = {
                 ExecStart = pkgs.writeShellScript "vibenight-start" ''
@@ -202,6 +203,7 @@
                   exec ${cfg.package}/bin/vibenight-server
                 '';
                 DynamicUser = true;
+                StateDirectory = "vibenight";
                 Restart = "on-failure";
                 RestartSec = 2;
               };
