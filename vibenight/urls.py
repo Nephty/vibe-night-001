@@ -6,4 +6,5 @@ app_name = "vibenight"
 
 urlpatterns = [
     path("", views.index, name="index"),
+    path("sudoku/", views.sudoku, name="sudoku"),
 ]

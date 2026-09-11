@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Vibe Night — Sudoku{% endblock %}
+{% block content %}
+<style>
+  .sudoku-cell.given { color: var(--text); }
+  .sudoku-cell.revealed { color: var(--accent); }
+  .sudoku-cell.empty:hover { background: var(--bg); }
+</style>
+
+<div class="max-w-md mx-auto w-full">
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-lg font-bold">Sudoku</h1>
+    <div id="timer" class="text-sm font-mono text-[var(--muted)]">00:00</div>
+  </div>
+
+  <div class="flex items-center justify-between mb-4 gap-2 flex-wrap">
+    <div class="flex items-center gap-1.5">
+      {% for d in difficulties %}
+        <a href="{% url 'vibenight:sudoku' %}?difficulty={{ d }}"
+           class="px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors {% if d == difficulty %}bg-[var(--accent)] text-[var(--accent-text)] border-[var(--accent)]{% else %}border-[var(--border)] hover:bg-[var(--bg)]{% endif %}">{{ d|capfirst }}</a>
+      {% endfor %}
+    </div>
+    <a href="{% url 'vibenight:sudoku' %}?difficulty={{ difficulty }}" class="px-3 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium hover:bg-[var(--bg)] transition-colors">New game</a>
+  </div>
+
+  <div id="sudoku-board" class="grid mx-auto bg-[var(--panel)]"
+       style="width: min(92vw, 440px); aspect-ratio: 1; grid-template-columns: repeat(9, 1fr); grid-template-rows: repeat(9, 1fr); border: 2px solid var(--text);">
+    {% for row in puzzle %}
+      {% for value in row %}
+        {% with r=forloop.parentloop.counter0 c=forloop.counter0 %}
+        <div class="sudoku-cell flex items-center justify-center select-none text-lg sm:text-xl font-semibold {% if value != 0 %}given{% else %}empty cursor-pointer{% endif %}"
+             style="border-right: {% if c == 2 or c == 5 %}2px solid var(--text){% else %}1px solid var(--border){% endif %}; border-bottom: {% if r == 2 or r == 5 %}2px solid var(--text){% else %}1px solid var(--border){% endif %};"
+             {% if value == 0 %}data-row="{{ r }}" data-col="{{ c }}"{% endif %}>{% if value != 0 %}{{ value }}{% endif %}</div>
+        {% endwith %}
+      {% endfor %}
+    {% endfor %}
+  </div>
+
+  <div id="solved-banner" class="hidden mt-6 text-center">
+    <p class="text-lg font-bold text-[var(--accent)]">Solved! 🎉</p>
+    <p class="text-sm text-[var(--muted)]" id="solved-time"></p>
+  </div>
+</div>
+
+<script>
+(function () {
+  var solution = {{ solution_json|safe }};
+  var board = document.getElementById("sudoku-board");
+  var timerEl = document.getElementById("timer");
+  var solvedBanner = document.getElementById("solved-banner");
+  var solvedTime = document.getElementById("solved-time");
+
+  var filled = board.querySelectorAll(".sudoku-cell.given").length;
+  var total = 81;
+  var seconds = 0;
+  var running = true;
+
+  setInterval(function () {
+    if (!running) return;
+    seconds++;
+    var m = Math.floor(seconds / 60), s = seconds % 60;
+    timerEl.textContent = (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
+  }, 1000);
+
+  board.querySelectorAll(".sudoku-cell.empty").forEach(function (cell) {
+    cell.addEventListener("click", function onClick() {
+      var r = parseInt(cell.dataset.row, 10);
+      var c = parseInt(cell.dataset.col, 10);
+      cell.textContent = solution[r][c];
+      cell.classList.remove("empty", "cursor-pointer");
+      cell.classList.add("given", "revealed");
+      cell.removeEventListener("click", onClick);
+      filled++;
+      if (filled === total) {
+        running = false;
+        solvedTime.textContent = "Solved in " + timerEl.textContent + ". Incredible deduction skills.";
+        solvedBanner.classList.remove("hidden");
+      }
+    });
+  });
+})();
+</script>
+{% endblock %}
