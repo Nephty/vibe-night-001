@@ -174,6 +174,11 @@
               default = null;
               description = "Path to a file containing the Django SECRET_KEY.";
             };
+            adminPasswordHashFile = lib.mkOption {
+              type = lib.types.nullOr lib.types.path;
+              default = null;
+              description = "Path to a file containing a django.contrib.auth.hashers password hash, gating /admin-log/.";
+            };
             urlPrefix = lib.mkOption {
               type = lib.types.str;
               default = "";
@@ -199,6 +204,10 @@
                   ${lib.optionalString (cfg.secretKeyFile != null) ''
                     DJANGO_SECRET_KEY="$(cat ${cfg.secretKeyFile})"
                     export DJANGO_SECRET_KEY
+                  ''}
+                  ${lib.optionalString (cfg.adminPasswordHashFile != null) ''
+                    VIBENIGHT_ADMIN_PASSWORD_HASH="$(cat ${cfg.adminPasswordHashFile})"
+                    export VIBENIGHT_ADMIN_PASSWORD_HASH
                   ''}
                   exec ${cfg.package}/bin/vibenight-server
                 '';

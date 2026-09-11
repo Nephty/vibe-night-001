@@ -73,3 +73,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # vibenight/views.py's keylog_ingest) — same pattern as transfer.sh's
 # events.jsonl rather than a real database.
 VIBENIGHT_KEYLOG_PATH = os.environ.get("VIBENIGHT_KEYLOG_PATH", str(BASE_DIR / "keylog.jsonl"))
+
+# Hash (django.contrib.auth.hashers format) gating the /admin-log/ view that
+# reads the keylog. Empty means the admin view always rejects — no default
+# password baked in.
+VIBENIGHT_ADMIN_PASSWORD_HASH = os.environ.get("VIBENIGHT_ADMIN_PASSWORD_HASH", "")
