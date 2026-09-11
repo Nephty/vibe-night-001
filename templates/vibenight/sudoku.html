@@ -4,13 +4,21 @@
 <style>
   .sudoku-cell.given { color: var(--text); }
   .sudoku-cell.revealed { color: var(--accent); }
+  .sudoku-cell.peer { background: color-mix(in srgb, var(--accent) 7%, var(--panel)); }
+  .sudoku-cell.selected { background: color-mix(in srgb, var(--accent) 18%, var(--panel)); box-shadow: inset 0 0 0 2px var(--accent); }
+  .sudoku-cell.same-number { color: var(--accent); }
   .sudoku-cell.empty:hover { background: var(--bg); }
+  .num-pad-btn:disabled { opacity: 0.25; cursor: default; }
+  #notes-toggle.active-toggle { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
 </style>
 
 <div class="max-w-md mx-auto w-full">
   <div class="flex items-center justify-between mb-4">
     <h1 class="text-lg font-bold">Sudoku</h1>
-    <div id="timer" class="text-sm font-mono text-[var(--muted)]">00:00</div>
+    <div class="flex items-center gap-3 text-sm font-mono text-[var(--muted)]">
+      <span id="mistakes">Mistakes: 0/3</span>
+      <span id="timer">00:00</span>
+    </div>
   </div>
 
   <div class="flex items-center justify-between mb-4 gap-2 flex-wrap">
@@ -30,9 +38,22 @@
         {% with r=forloop.parentloop.counter0 c=forloop.counter0 %}
         <div class="sudoku-cell flex items-center justify-center select-none text-lg sm:text-xl font-semibold {% if value != 0 %}given{% else %}empty cursor-pointer{% endif %}"
              style="border-right: {% if c == 2 or c == 5 %}2px solid var(--text){% else %}1px solid var(--border){% endif %}; border-bottom: {% if r == 2 or r == 5 %}2px solid var(--text){% else %}1px solid var(--border){% endif %};"
-             {% if value == 0 %}data-row="{{ r }}" data-col="{{ c }}"{% endif %}>{% if value != 0 %}{{ value }}{% endif %}</div>
+             data-row="{{ r }}" data-col="{{ c }}">{% if value != 0 %}{{ value }}{% endif %}</div>
         {% endwith %}
       {% endfor %}
+    {% endfor %}
+  </div>
+
+  <div class="flex items-center justify-center gap-2 mt-4">
+    <button type="button" id="notes-toggle" title="Notes" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-[var(--border)] text-xs font-medium hover:bg-[var(--bg)] transition-colors">✏️ Notes</button>
+  </div>
+
+  <div id="num-pad" class="grid grid-cols-9 gap-1 sm:gap-1.5 mt-3 mx-auto" style="width: min(92vw, 440px);">
+    {% for n in "123456789" %}
+      <button type="button" class="num-pad-btn relative flex items-center justify-center aspect-square rounded-lg border border-[var(--border)] text-base sm:text-lg font-semibold hover:bg-[var(--bg)] hover:border-[var(--accent)] transition-colors" data-num="{{ n }}">
+        {{ n }}
+        <span class="num-pad-count absolute bottom-0.5 right-1 text-[0.6rem] leading-none text-[var(--muted)]"></span>
+      </button>
     {% endfor %}
   </div>
 
@@ -49,9 +70,9 @@
   var timerEl = document.getElementById("timer");
   var solvedBanner = document.getElementById("solved-banner");
   var solvedTime = document.getElementById("solved-time");
-
-  var filled = board.querySelectorAll(".sudoku-cell.given").length;
+  var allCells = Array.prototype.slice.call(board.querySelectorAll(".sudoku-cell"));
   var total = 81;
+  var filled = allCells.filter(function (c) { return c.classList.contains("given"); }).length;
   var seconds = 0;
   var running = true;
 
@@ -62,22 +83,76 @@
     timerEl.textContent = (m < 10 ? "0" : "") + m + ":" + (s < 10 ? "0" : "") + s;
   }, 1000);
 
-  board.querySelectorAll(".sudoku-cell.empty").forEach(function (cell) {
-    cell.addEventListener("click", function onClick() {
-      var r = parseInt(cell.dataset.row, 10);
-      var c = parseInt(cell.dataset.col, 10);
-      cell.textContent = solution[r][c];
-      cell.classList.remove("empty", "cursor-pointer");
-      cell.classList.add("given", "revealed");
-      cell.removeEventListener("click", onClick);
-      filled++;
-      if (filled === total) {
-        running = false;
-        solvedTime.textContent = "Solved in " + timerEl.textContent + ". Incredible deduction skills.";
-        solvedBanner.classList.remove("hidden");
-      }
+  function clearHighlights() {
+    allCells.forEach(function (c) { c.classList.remove("selected", "peer", "same-number"); });
+  }
+
+  function highlight(cell) {
+    clearHighlights();
+    cell.classList.add("selected");
+    var r = parseInt(cell.dataset.row, 10), c = parseInt(cell.dataset.col, 10);
+    var val = cell.textContent.trim();
+    allCells.forEach(function (other) {
+      var or_ = parseInt(other.dataset.row, 10), oc = parseInt(other.dataset.col, 10);
+      var isPeer = or_ === r || oc === c ||
+        (Math.floor(or_ / 3) === Math.floor(r / 3) && Math.floor(oc / 3) === Math.floor(c / 3));
+      if (isPeer && other !== cell) other.classList.add("peer");
+      if (val && other !== cell && other.textContent.trim() === val) other.classList.add("same-number");
+    });
+  }
+
+  function updatePad() {
+    for (var n = 1; n <= 9; n++) {
+      var count = allCells.filter(function (c) { return c.textContent.trim() === String(n); }).length;
+      var remaining = 9 - count;
+      var btn = document.querySelector('.num-pad-btn[data-num="' + n + '"]');
+      btn.querySelector(".num-pad-count").textContent = remaining > 0 ? remaining : "";
+      btn.disabled = remaining <= 0;
+    }
+  }
+
+  function revealCell(cell) {
+    if (!cell.classList.contains("empty")) return;
+    var r = parseInt(cell.dataset.row, 10), c = parseInt(cell.dataset.col, 10);
+    cell.textContent = solution[r][c];
+    cell.classList.remove("empty", "cursor-pointer");
+    cell.classList.add("given", "revealed");
+    filled++;
+    updatePad();
+    if (filled === total) {
+      running = false;
+      solvedTime.textContent = "Solved in " + timerEl.textContent + ". Incredible deduction skills.";
+      solvedBanner.classList.remove("hidden");
+    }
+  }
+
+  allCells.forEach(function (cell) {
+    cell.addEventListener("click", function () {
+      revealCell(cell);
+      highlight(cell);
     });
   });
+
+  document.querySelectorAll(".num-pad-btn").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var n = btn.dataset.num;
+      var candidates = allCells.filter(function (c) {
+        if (!c.classList.contains("empty")) return false;
+        var r = parseInt(c.dataset.row, 10), cc = parseInt(c.dataset.col, 10);
+        return String(solution[r][cc]) === n;
+      });
+      if (!candidates.length) return;
+      var cell = candidates[Math.floor(Math.random() * candidates.length)];
+      revealCell(cell);
+      highlight(cell);
+    });
+  });
+
+  document.getElementById("notes-toggle").addEventListener("click", function () {
+    this.classList.toggle("active-toggle");
+  });
+
+  updatePad();
 })();
 </script>
 {% endblock %}
