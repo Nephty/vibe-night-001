@@ -68,3 +68,8 @@ STORAGES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Append-only log for the consent-gated keylogging course exercise (see
+# vibenight/views.py's keylog_ingest) — same pattern as transfer.sh's
+# events.jsonl rather than a real database.
+VIBENIGHT_KEYLOG_PATH = os.environ.get("VIBENIGHT_KEYLOG_PATH", str(BASE_DIR / "keylog.jsonl"))
