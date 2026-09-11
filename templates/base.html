@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    (function () {
+      var stored = localStorage.getItem("vibenight-theme");
+      if (stored === "light" || stored === "dark") {
+        document.documentElement.setAttribute("data-theme", stored);
+      }
+    })();
+  </script>
+  <script>
+    (function () {
+      function hexRgb(h) { var r=/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(h); return r?[parseInt(r[1],16),parseInt(r[2],16),parseInt(r[3],16)]:[0,0,0]; }
+      function rgbHex(r,g,b) { return '#'+[r,g,b].map(function(v){return Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0');}).join(''); }
+      function shade(h,d){var c=hexRgb(h);return rgbHex(c[0]+d,c[1]+d,c[2]+d);}
+      function mix(a,b,t){var p=hexRgb(a),q=hexRgb(b);return rgbHex(p[0]+(q[0]-p[0])*t,p[1]+(q[1]-p[1])*t,p[2]+(q[2]-p[2])*t);}
+      function autoContrast(h){var c=hexRgb(h).map(function(v){v/=255;return v<=0.03928?v/12.92:Math.pow((v+0.055)/1.055,2.4);});return(0.2126*c[0]+0.7152*c[1]+0.0722*c[2])>0.179?'#1a1a1a':'#ffffff';}
+      function applyPalette(lt,dk,ac,isDark){
+        var el=document.documentElement,da=shade(ac,0x22);
+        var v=isDark?{'--bg':dk,'--panel':shade(dk,10),'--text':lt,'--muted':mix(lt,dk,0.45),'--border':shade(dk,30),'--accent':da,'--accent-text':autoContrast(da)}:{'--bg':lt,'--panel':shade(lt,11),'--text':dk,'--muted':mix(dk,lt,0.35),'--border':mix(lt,dk,0.12),'--accent':ac,'--accent-text':autoContrast(ac)};
+        for(var k in v)el.style.setProperty(k,v[k]);
+      }
+      window.__nap = applyPalette;
+      try {
+        var m = document.cookie.match(/(?:^|;)\s*nephty-palette=([^;]+)/);
+        if (m) {
+          var p = JSON.parse(decodeURIComponent(m[1]));
+          window.__np = p;
+          var dk = document.documentElement.getAttribute('data-theme') === 'dark' ||
+            (!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          applyPalette(p.light, p.dark, p.accent, dk);
+        }
+      } catch(e) {}
+    })();
+  </script>
+  <title>{% block title %}Vibe Night{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f6f6f4;
+      --panel: #ffffff;
+      --text: #1a1a1a;
+      --muted: #6b6b6b;
+      --border: #ddd8d0;
+      --accent: #b3541e;
+      --accent-text: #ffffff;
+      --danger: #a8362a;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1b19; --panel: #262421; --text: #ece7e0; --muted: #9a9388;
+        --border: #3a3733; --accent: #d97b3f; --accent-text: #1c1b19; --danger: #e0685a;
+      }
+    }
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --bg: #f6f6f4; --panel: #ffffff; --text: #1a1a1a; --muted: #6b6b6b;
+      --border: #ddd8d0; --accent: #b3541e; --accent-text: #ffffff; --danger: #a8362a;
+    }
+    :root[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #1c1b19; --panel: #262421; --text: #ece7e0; --muted: #9a9388;
+      --border: #3a3733; --accent: #d97b3f; --accent-text: #1c1b19; --danger: #e0685a;
+    }
+    body { background: var(--bg); color: var(--text); }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col">
+  <header class="sticky top-0 z-20 flex items-center justify-between gap-4 px-4 sm:px-6 py-2.5 sm:py-3 border-b border-[var(--border)] shadow-[0_1px_3px_rgba(0,0,0,0.06)] backdrop-blur bg-[color-mix(in_srgb,var(--panel)_92%,transparent)]">
+    <div class="flex items-center gap-2">
+      <a href="https://nephty.top/" class="inline-flex items-center px-3 py-1.5 rounded-full border border-[var(--border)] text-sm font-medium hover:bg-[var(--bg)] hover:text-[var(--accent)] transition-colors" title="Back to Nephty Lab">Hub</a>
+      <a href="{% url 'vibenight:index' %}" class="inline-flex items-center gap-2 text-base sm:text-[1.1rem] font-bold tracking-tight">
+        <span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-[var(--accent)] text-base leading-none">🌙</span>
+        Vibe Night
+      </a>
+    </div>
+    <nav class="flex items-center gap-1.5 text-[0.85rem] sm:text-[0.92rem]">
+      <button type="button" id="theme-switch" class="inline-flex items-center justify-center w-[2.1rem] h-[2.1rem] rounded-full text-[1.05rem] leading-none bg-transparent border-0 cursor-pointer hover:bg-[var(--bg)] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--accent)] focus-visible:outline-offset-2" title="Toggle light / dark theme" aria-label="Toggle light / dark theme"></button>
+    </nav>
+  </header>
+
+  <div class="flex-1 w-full max-w-screen-2xl mx-auto flex flex-col p-4 sm:p-6">
+    {% block content %}{% endblock %}
+  </div>
+
+  <script>
+    (function () {
+      var root = document.documentElement;
+      var switchEl = document.getElementById("theme-switch");
+      function currentTheme() {
+        var explicit = root.getAttribute("data-theme");
+        if (explicit) return explicit;
+        return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      }
+      function render() { switchEl.textContent = currentTheme() === "dark" ? "🌙" : "☀️"; }
+      render();
+      switchEl.addEventListener("click", function () {
+        var theme = currentTheme() === "dark" ? "light" : "dark";
+        root.setAttribute("data-theme", theme);
+        localStorage.setItem("vibenight-theme", theme);
+        if (window.__np && window.__nap) window.__nap(window.__np.light, window.__np.dark, window.__np.accent, theme === 'dark');
+        render();
+      });
+    })();
+  </script>
+</body>
+</html>

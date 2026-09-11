@@ -1,0 +1,9 @@
+.venv/
+.direnv/
+__pycache__/
+*.pyc
+staticfiles/
+result
+.idea/
+node_modules/
+.DS_Store
