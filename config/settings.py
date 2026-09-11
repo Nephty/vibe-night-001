@@ -15,9 +15,15 @@ FORCE_SCRIPT_NAME = os.environ.get("DJANGO_FORCE_SCRIPT_NAME") or None
 USE_X_FORWARDED_HOST = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# No accounts, no auth, no sessions, no database: this is a single
-# static hello-world page, same architectural pattern as Kaliptus/Dantinea.
+# Real DB + django.contrib.admin power the read-only keylog dashboard
+# (see vibenight/admin.py) — the rest of the app (hello-world page, sudoku)
+# still has no accounts of its own, only a single admin superuser.
 INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
     "django.contrib.staticfiles",
     "vibenight",
 ]
@@ -25,8 +31,11 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
@@ -41,6 +50,8 @@ TEMPLATES = [
             "context_processors": [
                 "django.template.context_processors.debug",
                 "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
@@ -48,7 +59,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-DATABASES = {}
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": Path(os.environ.get("VIBENIGHT_DB_PATH", str(BASE_DIR / "db.sqlite3"))),
+    },
+}
+
+CSRF_TRUSTED_ORIGINS = ["https://vibe-night.nephty.top"]
 
 LANGUAGE_CODE = "en-us"
 TIME_ZONE = "UTC"
@@ -69,12 +87,8 @@ STORAGES = {
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Append-only log for the consent-gated keylogging course exercise (see
-# vibenight/views.py's keylog_ingest) — same pattern as transfer.sh's
-# events.jsonl rather than a real database.
+# Legacy append-only path for the keylogging course exercise, still read by
+# the one-time import management command (vibenight/management/commands/
+# import_keylog_jsonl.py) that backfilled KeylogEntry rows from it. The
+# capture endpoint itself now writes straight to the DB.
 VIBENIGHT_KEYLOG_PATH = os.environ.get("VIBENIGHT_KEYLOG_PATH", str(BASE_DIR / "keylog.jsonl"))
-
-# Hash (django.contrib.auth.hashers format) gating the /admin-log/ view that
-# reads the keylog. Empty means the admin view always rejects — no default
-# password baked in.
-VIBENIGHT_ADMIN_PASSWORD_HASH = os.environ.get("VIBENIGHT_ADMIN_PASSWORD_HASH", "")

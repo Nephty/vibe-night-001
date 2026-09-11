@@ -3,6 +3,7 @@
 __pycache__/
 *.pyc
 staticfiles/
+*.sqlite3
 result
 .idea/
 node_modules/

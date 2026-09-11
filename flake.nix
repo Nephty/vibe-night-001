@@ -69,6 +69,7 @@
           export PYTHONPATH=${appHome}''${PYTHONPATH:+:$PYTHONPATH}
           export VIBENIGHT_STATIC_ROOT=''${VIBENIGHT_STATIC_ROOT:-${appHome}/staticfiles}
           export ALLOWED_HOSTS=''${ALLOWED_HOSTS:-*}
+          export VIBENIGHT_DB_PATH=''${VIBENIGHT_DB_PATH:-/var/lib/vibenight/db.sqlite3}
         '';
 
         manageBin = pkgs.writeShellApplication {
@@ -80,8 +81,6 @@
           '';
         };
 
-        # No database, so unlike the sibling apps' server wrapper this
-        # never runs `migrate` — just starts gunicorn directly.
         serverBin = pkgs.writeShellApplication {
           name = "vibenight-server";
           runtimeInputs = [ pythonEnv ];
@@ -91,6 +90,8 @@
             BIND=''${VIBENIGHT_BIND:-0.0.0.0:8000}
             WORKERS=''${VIBENIGHT_WORKERS:-3}
 
+            echo "vibenight: migrating (db: $VIBENIGHT_DB_PATH)"
+            python ${appHome}/manage.py migrate --noinput
             echo "vibenight: serving on $BIND ($WORKERS workers)"
             exec gunicorn config.wsgi:application \
               --chdir ${appHome} --bind "$BIND" --workers "$WORKERS"
@@ -172,12 +173,7 @@
             secretKeyFile = lib.mkOption {
               type = lib.types.nullOr lib.types.path;
               default = null;
-              description = "Path to a file containing the Django SECRET_KEY.";
-            };
-            adminPasswordHashFile = lib.mkOption {
-              type = lib.types.nullOr lib.types.path;
-              default = null;
-              description = "Path to a file containing a django.contrib.auth.hashers password hash, gating /admin-log/.";
+              description = "Path to a file containing the Django SECRET_KEY (needed now for admin sessions/CSRF).";
             };
             urlPrefix = lib.mkOption {
               type = lib.types.str;
@@ -198,6 +194,7 @@
                 VIBENIGHT_WORKERS = toString cfg.workers;
                 DJANGO_FORCE_SCRIPT_NAME = cfg.urlPrefix;
                 VIBENIGHT_KEYLOG_PATH = "/var/lib/vibenight/keylog.jsonl";
+                VIBENIGHT_DB_PATH = "/var/lib/vibenight/db.sqlite3";
               };
               serviceConfig = {
                 ExecStart = pkgs.writeShellScript "vibenight-start" ''
@@ -205,14 +202,11 @@
                     DJANGO_SECRET_KEY="$(cat ${cfg.secretKeyFile})"
                     export DJANGO_SECRET_KEY
                   ''}
-                  ${lib.optionalString (cfg.adminPasswordHashFile != null) ''
-                    VIBENIGHT_ADMIN_PASSWORD_HASH="$(cat ${cfg.adminPasswordHashFile})"
-                    export VIBENIGHT_ADMIN_PASSWORD_HASH
-                  ''}
                   exec ${cfg.package}/bin/vibenight-server
                 '';
                 DynamicUser = true;
                 StateDirectory = "vibenight";
+                StateDirectoryMode = "0755";
                 Restart = "on-failure";
                 RestartSec = 2;
               };
